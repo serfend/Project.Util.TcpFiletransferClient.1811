@@ -9,6 +9,10 @@ namespace TcpFiletransferTest
 {
 	class Program
 	{
+		/// <summary>
+		/// 使用花生壳预设服务器进行的测试，请替换
+		/// </summary>
+		/// <param name="args"></param>
 		static void Main(string[] args)
 		{
 			var engine = new File_Transfer.Model.TransferFileEngine();
