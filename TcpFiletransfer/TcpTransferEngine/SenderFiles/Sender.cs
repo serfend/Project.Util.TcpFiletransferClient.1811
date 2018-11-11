@@ -9,6 +9,8 @@ using System.Diagnostics;
 using System.Timers;
 using File_Transfer.Model.ReceiverFiles;
 using System.ComponentModel;
+using TcpFiletransfer.TcpTransferEngine;
+using TcpFiletransfer.TcpTransferEngine.Connections;
 
 namespace File_Transfer.Model.SenderFiles
 {
@@ -27,38 +29,39 @@ namespace File_Transfer.Model.SenderFiles
         private long totalSent = 0;
         private byte[] byteToSend;
 
-        private TcpClient TcpClient;
-        private NetworkStream NetworkStream;
 
-        private Stopwatch ElapsedTime = new Stopwatch();
+
+		
+		private Stopwatch ElapsedTime = new Stopwatch();
         private Timer ProgressChangedInvoker = new Timer(500);
 
         public string SendIpAdress { get; set; }
         public int SendPortNumber { get; set; }
         public string SendFileName { get; set; }
 
-        private bool IsConnected{ get; set; }
         private bool IsCancelled { get; set; }
-
-        public delegate void ProgressChanged(object sender, ReceiverFiles.ProgressChangedEventArgs e);
-        public delegate void SendingCompleted(object sender, SendingCompletedEventArgs e);
+		public delegate void ProgressChanged(object sender, File_Transfer.Model.ReceiverFiles.ProgressChangedEventArgs e);
+		public delegate void SendingCompleted(object sender, SendingCompletedEventArgs e);
         public delegate void SendingFileStartedEventHandler(object sender,SendingFileStartedEventArgs e);
+		
 
-        public event ProgressChanged ProgressChangedEvent;
+		
+		public event ProgressChanged ProgressChangedEvent;
         public event SendingFileStartedEventHandler SendingFileStartedEvent;
         public event SendingCompleted SendingCompletedEvent;
 
         public bool IsWaitingForConnect { get; set; } = false;
         public bool IsSending { get; set; }
+		private Connection Connection;
 
-        public Sender()
+		public Sender(ref Connection connection)
         {
+			this.Connection = connection;
             Initialize();
         }
 
         private void Initialize()
         {
-            IsConnected = false;
             IsCancelled = false;
             IsSending = false;
             IsWaitingForConnect = false;
@@ -96,35 +99,7 @@ namespace File_Transfer.Model.SenderFiles
             SendingCompletedEvent?.Invoke(this,new SendingCompletedEventArgs(result, message, title));
         }
 
-        private bool Connect()
-        {
-            if (!IsConnected)
-            {
-                try
-                {
-                    IsWaitingForConnect = true;
-                  
-                    TcpClient = new TcpClient(SendIpAdress.ToString(), SendPortNumber);
-                    NetworkStream = TcpClient.GetStream();
-               
 
-                    IsConnected = true;
-                    return true;
-                }
-                catch
-                {
-                    return false;
-                }
-                finally
-                {
-                    IsWaitingForConnect = false;
-                }
-            }
-            else
-            {
-                return true;
-            }
-        }
 
         private byte[] GetPacketToSend()
         {
@@ -153,29 +128,6 @@ namespace File_Transfer.Model.SenderFiles
             return byteToSend;
         }
 
-        private bool Disconnect()
-        {
-            if (TcpClient != null)
-            {
-                TcpClient.Close();
-            }
-
-            if (NetworkStream != null)
-            {
-                try
-                {
-                    NetworkStream.Close();
-                }
-                catch
-                {
-                    NetworkStream = null;
-                }
-            }
-
-            IsConnected = false;
-
-            return true;
-        }
 
         public bool CancelSendingFile()
         {
@@ -192,18 +144,17 @@ namespace File_Transfer.Model.SenderFiles
 
         public  void SendFile()
         {
+			if (!Connection.IsConnected) {
+				SendingFileFinished(SendResult.CannotSend, "当前未连接");
+				return;
+			}
             try
             {
-                SendResult returnSendResult = SendResult.CannotSend;
+				var returnSendResult=SendResult.Completed;
                 string returnMessage = string.Empty;
                 string returnMessageTitle = string.Empty;
 
-                if (! Connect())
-                {
-                    returnSendResult = SendResult.CannotSend;
-                    SendingFileFinished(returnSendResult, "未成功连接");
-                    return;
-                }
+                
 
                 byteToSend = GetPacketToSend();
                 byte[] buff = new byte[SEND_BUFFER];
@@ -214,12 +165,12 @@ namespace File_Transfer.Model.SenderFiles
 
                 SendingFileStarted();
 
-                  if (NetworkStream != null)
+                  if (Connection != null)
                   {
                       int loopStep = 0;
                       while (noOfPack > 0)
                       {
-                          if (!NetworkStream.CanWrite)
+                          if (!Connection.CanWrite)
                           {
                               returnSendResult = SendResult.CannotSend;
                               returnMessage = "文件不可写";
@@ -239,7 +190,7 @@ namespace File_Transfer.Model.SenderFiles
                           else 
                               Array.Copy(byteToSend, loopStep * SEND_BUFFER, buff, 0, byteToSend.Length % SEND_BUFFER);
 
-                           NetworkStream.Write(buff, 0, buff.Length);
+                           Connection.Write(buff, 0, buff.Length);
 
                           totalSent += buff.Length;
 
@@ -293,10 +244,6 @@ namespace File_Transfer.Model.SenderFiles
             {
 				SendingFileFinished(SendResult.CannotSend, exception.Message);
             }
-            finally
-            {
-                Dispose();
-            }
         }
 
 		#region IDisposable Support
@@ -308,11 +255,11 @@ namespace File_Transfer.Model.SenderFiles
 			{
 				if (disposing)
 				{
-					Disconnect();
 
-					if (NetworkStream != null)
+					if (Connection != null)
 					{
-						NetworkStream.Dispose();
+						Connection.DisConnect();
+						Connection.Dispose();
 						
 					}
 
@@ -321,8 +268,7 @@ namespace File_Transfer.Model.SenderFiles
 						ProgressChangedInvoker.Dispose();
 					}
 				}
-				TcpClient = null;
-				NetworkStream = null;
+
 				ProgressChangedInvoker = null;
 				disposedValue = true;
 			}

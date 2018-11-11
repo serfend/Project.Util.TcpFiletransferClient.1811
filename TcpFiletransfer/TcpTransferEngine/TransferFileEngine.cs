@@ -1,167 +1,44 @@
 ﻿using File_Transfer.Model.ReceiverFiles;
 using File_Transfer.Model.SenderFiles;
-
+using System;
 using System.Net;
+using TcpFiletransfer.TcpTransferEngine.Connections;
+using static TcpFiletransfer.TcpTransferEngine.Connections.Connection;
 
-namespace File_Transfer.Model
+namespace File_Transfer
 {
-    public class TransferFileEngine : ISender, IReceiver
+    public class TransferFileEngine:IDisposable 
     {
-        private Sender sender;
-        private Receiver receiver;
+		private Sender sender;
+		private Receiver receiver;
+		public Connection Connection;
 
-        public TransferFileEngine()
-        {
-            Sender = new Sender();
-            Receiver = new Receiver();
-        }
+		public Sender Sender { get => sender; private set=>sender=value; }
+		public Receiver Receiver { get => receiver; private set => receiver = value; }
 
-
-        public string SendIpAdress
-        {
-            get
-            {
-                return Sender.SendIpAdress;
-            }
-            set
-            {
-                Sender.SendIpAdress = value;
-            }
-        }
-
-        public IPAddress ReceiveIpAdress
-        {
-            get
-            {
-                return Receiver.ReceiveIpAdress;
-            }
-            set
-            {
-                Receiver.ReceiveIpAdress = value;
-            }
-        }
-
-        public int SendPortNumber
-        {
-            get
-            {
-                return Sender.SendPortNumber;
-            }
-            set
-            {
-                Sender.SendPortNumber = value;
-            }
-        }
-
-        public int ReceivePortNumber
-        {
-            get
-            {
-                return Receiver.ReceivePortNumber;
-            }
-            set
-            {
-                Receiver.ReceivePortNumber = value;
-            }
-        }
-
-        public string SendFileName
-        {
-            get
-            {
-                return Sender.SendFileName;
-            }
-            set
-            {
-                Sender.SendFileName = value;
-            }
-        }
-
-        public string ReceiveSaveLocation
-        {
-            get
-            {
-                return Receiver.ReceiveSaveLocation;
-            }
-            set
-            {
-                Receiver.ReceiveSaveLocation = value;
-            }
-        }
-
-        public bool IsWaitingForConnect
-        {
-            get
-            {
-                return Sender.IsWaitingForConnect;
-            }
-            set
-            {
-                Sender.IsWaitingForConnect = value;
-            }
-        }
-        public bool IsSending
-        {
-            get
-            {
-                return Sender.IsSending;
-            }
-            set
-            {
-                Sender.IsSending = value;
-            }
-        }
-
-        public bool IsFileReceiving
-        {
-            get
-            {
-                return Receiver.IsFileReceiving;
-            }
-            set
-            {
-                Receiver.IsFileReceiving = value;
-            }
-        }
-        public bool IsListening
-        {
-            get
-            {
-                return Receiver.IsListening;
-            }
-            set
-            {
-                Receiver.IsListening = value;
-            }
-        }
-
-		public Sender Sender { get => sender; set => sender = value; }
-		public Receiver Receiver { get => receiver; set => receiver = value; }
-
-		public void ListenForRequest()
-        {
-            Receiver.ListenForRequest();
-        }
-
-        public void SendFile()
-        {
-            Sender.SendFile();
-        }
-
-        public void CancelListeningFile()
-        {
-            Receiver.CancelListeningFile();
-        }
-
-        public void CancelReceivingFile()
-        {
-            Receiver.CancelReceivingFile();
-        }
-
-        public bool CancelSendingFile()
-        {
-            return Sender.CancelSendingFile();
-        }
+		
+		public TransferFileEngine(EngineModel model,string ip,int port) {
+			Connection = new Connection(model,ip, port);
+			sender = new Sender(ref Connection);
+			receiver = new Receiver(ref Connection);
+		}
+		public void Disconnect()
+		{
+			Connection.DisConnect();
+		}
+		public void Connect() => Connection.Connect();
+		public void SendingFile(string fileName)
+		{
+			Sender.SendFileName = fileName;
+			sender.SendFile();
+		}
+		public void CancelSendingFile() { Sender.CancelSendingFile(); }
+		public void ReceiveFile(string savePath)
+		{
+			Receiver.ReceiveSaveLocation = savePath;
+			Receiver.ReceiveFile();
+		}
+		public void CancelReceiveFile() { Receiver.CancelReceivingFile(); }
 
 		#region IDisposable Support
 		private bool disposedValue = false; // 要检测冗余调用
@@ -172,33 +49,23 @@ namespace File_Transfer.Model
 			{
 				if (disposing)
 				{
-					Sender.Dispose();
-					Receiver.Dispose();
-					// TODO: 释放托管状态(托管对象)。
+					Connection.DisConnect();
+					Connection.Dispose();
+					if (sender != null) sender.Dispose();
+					if (receiver != null) receiver.Dispose();
 				}
-
-				// TODO: 释放未托管的资源(未托管的对象)并在以下内容中替代终结器。
-				// TODO: 将大型字段设置为 null。
-
+				Connection = null;
+				Sender = null;
+				Receiver = null;
 				disposedValue = true;
 			}
 		}
 
-		// TODO: 仅当以上 Dispose(bool disposing) 拥有用于释放未托管资源的代码时才替代终结器。
-		// ~TransferFileEngine() {
-		//   // 请勿更改此代码。将清理代码放入以上 Dispose(bool disposing) 中。
-		//   Dispose(false);
-		// }
-
 		// 添加此代码以正确实现可处置模式。
 		public void Dispose()
 		{
-			// 请勿更改此代码。将清理代码放入以上 Dispose(bool disposing) 中。
 			Dispose(true);
-			// TODO: 如果在以上内容中替代了终结器，则取消注释以下行。
-			// GC.SuppressFinalize(this);
 		}
 		#endregion
-
 	}
 }

@@ -7,6 +7,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using TcpFiletransfer.TcpTransferEngine;
+using TcpFiletransfer.TcpTransferEngine.Connections;
 
 namespace File_Transfer.Model.ReceiverFiles
 {
@@ -29,9 +31,7 @@ namespace File_Transfer.Model.ReceiverFiles
 		private long totalReceived = 0;
 		private long fileSize = 0;
 
-		private TcpListener TcpListener;
-		private NetworkStream NetworkStream;
-		private Socket Soket;
+
 
 		private Stopwatch ElapsedTime = new Stopwatch();
 		private System.Timers.Timer ProgressChangedInvoker = new System.Timers.Timer(500);
@@ -43,41 +43,29 @@ namespace File_Transfer.Model.ReceiverFiles
 		}
 
 		private bool CancelFileReceiving { get; set; }
-		private bool CancelListening { get; set; }
 
 		public delegate void ProgressChanged(object sender,ProgressChangedEventArgs e);
 		public delegate void ReceivingStarted(object sender, ReceivingStartedEventArgs e);
 		public delegate void ReceivingCompleted(object sender, ReceivingCompletedEventArgs e);
-		public delegate void ListenStartedEventHandler(object sender, ListenStartedEventArgs e);
-		public delegate void ListenCompleted(object sender, ListenCompletedEventArgs e);
 
 		public event ProgressChanged ProgressChangedEvent;
 		public event ReceivingStarted ReceivingStartedEvent;
 		public event ReceivingCompleted ReceivingCompletedEvent;
-		public event ListenCompleted ListenCompletedEvent;
-		public event ListenStartedEventHandler ListenStartedEvent;
 
-		public IPAddress ReceiveIpAdress { get; set; }
-		public int ReceivePortNumber { get; set; }
+
+
 		public string ReceiveSaveLocation { get; set; }
 
 		public bool IsFileReceiving { get; set; }
 		public bool IsListening { get; set; }
 
-		public Receiver()
+		public Connection Connection;
+		public Receiver(ref Connection connection)
 		{
-			Initialize();
-		}
-
-		private void Initialize()
-		{
-			IsListening = false;
-			IsFileReceiving = false;
-			CancelFileReceiving = false;
-			CancelListening = false;
-
+			this.Connection = connection;
 			ProgressChangedInvoker.Elapsed += ProgressChangedInvoker_Elapsed;
 		}
+
 
 		private void ProgressChangedInvoker_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
 		{
@@ -112,66 +100,17 @@ namespace File_Transfer.Model.ReceiverFiles
 			ReceivingCompletedEvent?.Invoke(this,new ReceivingCompletedEventArgs(result, message, title));
 		}
 
-		private void ListenStarted()
-		{
-			IsListening = true;
-			TcpListener = new TcpListener(ReceiveIpAdress, ReceivePortNumber);
-			TcpListener.Start();
 
-			ListenStartedEvent?.Invoke(this,new ListenStartedEventArgs());
-		}
 
-		private void ListenFinished(ReceiveResult result)
-		{
-			ListenCompletedEvent?.Invoke(this,new ListenCompletedEventArgs(result));
-		}
-
-		public  void ListenForRequest()
+		public  void ReceiveFile()
 		{
 			try
 			{
-				ListenStarted();
-
-				bool requestAccepted = false;
-
-				while (!CancelListening && !TcpListener.Pending()) ;
-
-				if (!CancelListening)
-				{
-					Soket =  TcpListener.AcceptSocket();
-					NetworkStream = new NetworkStream(Soket);
-					requestAccepted = true;
-				}
 				
-				if (requestAccepted)
-				{
-					ListenFinished(ReceiveResult.RequestAccepted);
-					ReceiveFile();
-				}
-				else
-				{
-					ListenFinished(ReceiveResult.ListeningCancelled);
-					Dispose();
-				}
-			}
-			catch (Exception ex)
-			{
-				Console.WriteLine(ex.Message);
-				ListenFinished(ReceiveResult.ListeningFailed);
-			}
-		}
-
-		private  void ReceiveFile()
-		{
-			try
-			{
-				ReceiveResult returnReceiveResult = ReceiveResult.CannotReceived;
-				string returnMessage = string.Empty;
-				string returnMessageTitle = string.Empty;
 
 				byte[] fileInfoByte = new byte[INFO_BUFFER];
 
-				NetworkStream.Read(fileInfoByte, 0, (int)INFO_BUFFER);
+				Connection.Read(fileInfoByte, 0, (int)INFO_BUFFER);
 
 				ReceivedFileInfo FileInfo = ReadFileInfoFromByte(fileInfoByte);
 				fileSize = FileInfo.FileSize;
@@ -184,16 +123,16 @@ namespace File_Transfer.Model.ReceiverFiles
 					ReceivingFileStarted();
 
 
-					if (!NetworkStream.CanRead)
+					if (!Connection.CanRead)
 					{
-						returnReceiveResult = ReceiveResult.CannotReceived;
+						ReceivingFileFinished(ReceiveResult.CannotReceived, "连接无法读取", "连接失效");
 						return;
 					}
-					while ((buffered = NetworkStream.Read(buff, 0, buff.Length)) > 0)
+					while ((buffered = Connection.Read(buff, 0, buff.Length)) > 0)
 					{
 						if (CancelFileReceiving)
 						{
-							returnReceiveResult = ReceiveResult.Cancelled;
+							ReceivingFileFinished(ReceiveResult.Cancelled, "文件接收被取消", "连接失效");
 							return;
 						}
 						fstream.Write(buff, 0, buffered);
@@ -202,12 +141,11 @@ namespace File_Transfer.Model.ReceiverFiles
 
 					if (totalReceived < FileInfo.FileSize)
 					{
-						returnReceiveResult = ReceiveResult.CannotReceived;
+						ReceivingFileFinished(ReceiveResult.CannotReceived, "接收到的数据不完整", "连接错误");
 						return;
 					}
-					returnReceiveResult = ReceiveResult.Completed;
 
-					ReceivingFileFinished(returnReceiveResult, returnMessage, returnMessageTitle);
+					ReceivingFileFinished(ReceiveResult.Completed, "", "");
 				}
 			}
 			catch (IOException ex)
@@ -226,12 +164,7 @@ namespace File_Transfer.Model.ReceiverFiles
 			{
 				ReceivingFileFinished(ReceiveResult.CannotReceived, "未知错误:" + exception.Message, "文件传输失败");
 			}
-			finally
-			{
-				Dispose();
-			}
 		}
-
 		private ReceivedFileInfo ReadFileInfoFromByte(byte[] fileInfoByte)
 		{
 			string fileInfoStr = Encoding.UTF8.GetString(fileInfoByte);
@@ -253,7 +186,7 @@ namespace File_Transfer.Model.ReceiverFiles
 
 		public void CancelListeningFile()
 		{
-			CancelListening = true;
+			Connection.CancelListening=true;
 		}
 
 		#region IDisposable Support
@@ -266,25 +199,13 @@ namespace File_Transfer.Model.ReceiverFiles
 				if (disposing)
 				{
 
-						if (Soket != null)
-						{
-							Soket.Close();
-							Soket.Dispose();
-							Soket = null;
-						}
-
-						if (TcpListener != null)
-						{
-							TcpListener.Stop();
-							TcpListener = null;
-						}
-
-						if (NetworkStream != null)
-						{
-							NetworkStream.Close();
-							NetworkStream.Dispose();
-							NetworkStream = null;
-						}
+					
+					if (Connection != null)
+					{
+						Connection.DisConnect();
+						Connection.Dispose();
+						
+					}
 					if (ProgressChangedInvoker != null)
 					{
 						ProgressChangedInvoker.Dispose();

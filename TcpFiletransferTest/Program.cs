@@ -5,6 +5,9 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using File_Transfer;
+using File_Transfer.Model.ReceiverFiles;
+using static TcpFiletransfer.TcpTransferEngine.Connections.Connection;
+
 namespace TcpFiletransferTest
 {
 	class Program
@@ -15,13 +18,13 @@ namespace TcpFiletransferTest
 		/// <param name="args"></param>
 		static void Main(string[] args)
 		{
-			var engine = new File_Transfer.Model.TransferFileEngine();
 			if (Console.ReadLine() == "send")
 			{
 				Console.WriteLine("准备发送");
-				engine.SendFileName = Environment.CurrentDirectory + "//test.txt";
-				engine.SendIpAdress = "1s68948k74.imwork.net";
-				engine.SendPortNumber = 16397;
+
+				var engine = new TransferFileEngine(EngineModel.AsServer, "any", 8009);
+				var fTestpath = Environment.CurrentDirectory + "//test.txt";
+
 				engine.Sender.ProgressChangedEvent += (x, xx) => {
 					Console.WriteLine(xx.ToString());
 				};
@@ -29,16 +32,42 @@ namespace TcpFiletransferTest
 				{
 					Console.Write("文件传输完成" + xx.Message);
 				};
+				engine.Connection.ConnectToClient += (x, xx) =>
+				{
+					if (xx.Result == ReceiveResult.RequestAccepted)
+					{
 
-				engine.SendFile();
+						Console.WriteLine("开始传输文件");
+						engine.SendingFile(fTestpath);
+
+					}
+					else
+					{
+						Console.WriteLine("连接失败"+xx.Info);
+					}
+				};
+				engine.Connect();
 			}
 			else
 			{
 				Console.WriteLine("等待接收");
-				engine.ReceiveIpAdress = IPAddress.Any;
-				engine.ReceivePortNumber = 8009;
-				engine.ReceiveSaveLocation = Environment.CurrentDirectory + "//recv";
-				engine.ListenForRequest();
+				var engine = new TransferFileEngine(EngineModel.AsClient, "1s68948k74.imwork.net", 16397);
+
+				engine.Connection.ConnectedToServer += (x, xx) => {
+					if (xx.Success)
+					{
+						Console.WriteLine("开始接收文件");
+						engine.ReceiveFile(Environment.CurrentDirectory + "//recv");
+					}
+					else
+					{
+						Console.WriteLine("连接失败:" + xx.Info);
+					}
+				};
+				engine.Receiver.ReceivingCompletedEvent += (x, xx) => {
+					Console.WriteLine(xx.Result.ToString());
+				};
+				engine.Connect();
 			}
 
 			while (true)

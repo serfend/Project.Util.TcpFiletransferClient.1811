@@ -15,7 +15,7 @@ namespace File_Transfer.Model.SenderFiles
 
         string SendFileName { get; set; }
 
-        bool IsWaitingForConnect { get; set; }
+ 
 
 
         bool IsSending { get;  set; }

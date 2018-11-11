@@ -41,6 +41,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TcpTransferEngine\Connections\Connection.cs" />
+    <Compile Include="TcpTransferEngine\Connections\IConnection.cs" />
     <Compile Include="TcpTransferEngine\ReceiverFiles\IReceiver.cs" />
     <Compile Include="TcpTransferEngine\ReceiverFiles\Receiver.cs" />
     <Compile Include="TcpTransferEngine\SenderFiles\ISender.cs" />

@@ -46,9 +46,23 @@ namespace File_Transfer.Model.ReceiverFiles
 		public string Message { get => message; set => message = value; }
 		public string Title { get => title; set => title = value; }
 	}
-	public class SendingFileStartedEventArgs : EventArgs
-	{
+	public class SendingFileStartedEventArgs : EventArgs{}
+	public class ConnectToServerEventArgs : EventArgs {
+		private bool success;
+		private string info;
 
+		public ConnectToServerEventArgs(bool success)
+		{
+			this.success = success;
+		}
+
+		public ConnectToServerEventArgs(bool success, string info) : this(success)
+		{
+			this.info = info;
+		}
+
+		public bool Success { get => success; set => success = value; }
+		public string Info { get => info; set => info = value; }
 	}
 	public class ReceivingCompletedEventArgs : EventArgs
 	{
@@ -75,15 +89,22 @@ namespace File_Transfer.Model.ReceiverFiles
 	{
 
 	}
-	public class ListenCompletedEventArgs : EventArgs
+	public class ConnectToClientEventArgs : EventArgs
 	{
 		private ReceiveResult result;
+		private string info;
 
-		public ListenCompletedEventArgs( ReceiveResult result)
+		public ConnectToClientEventArgs( ReceiveResult result)
 		{
 			this.Result = result;
 		}
 
+		public ConnectToClientEventArgs(ReceiveResult result, string info) : this(result)
+		{
+			this.info = info;
+		}
+
 		public ReceiveResult Result { get => result; set => result = value; }
+		public string Info { get => info; set => info = value; }
 	}
 }
