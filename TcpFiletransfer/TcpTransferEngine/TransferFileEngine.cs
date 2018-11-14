@@ -29,9 +29,9 @@ namespace File_Transfer
 		public void Connect() => Connection.Connect();
 		public void SendingFile(string fileName)
 		{
-			Sender.SendFileName = fileName;
-			sender.SendFile();
+			Sender.SendFile(fileName);
 		}
+
 		public void CancelSendingFile() { Sender.CancelSendingFile(); }
 		public void ReceiveFile(string savePath)
 		{

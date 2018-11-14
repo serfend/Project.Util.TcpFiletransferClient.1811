@@ -11,6 +11,8 @@ using File_Transfer.Model.ReceiverFiles;
 using System.ComponentModel;
 using TcpFiletransfer.TcpTransferEngine;
 using TcpFiletransfer.TcpTransferEngine.Connections;
+using System.Collections.Generic;
+using System.Threading;
 
 namespace File_Transfer.Model.SenderFiles
 {
@@ -28,16 +30,16 @@ namespace File_Transfer.Model.SenderFiles
 
         private long totalSent = 0;
         private byte[] byteToSend;
-
+		private Thread threadSending;
 
 
 		
 		private Stopwatch ElapsedTime = new Stopwatch();
-        private Timer ProgressChangedInvoker = new Timer(500);
+        private System.Timers.Timer ProgressChangedInvoker = new System.Timers.Timer(500);
 
         public string SendIpAdress { get; set; }
         public int SendPortNumber { get; set; }
-        public string SendFileName { get; set; }
+		private List<string> SendingFileQueue=new List<string>();
 
         private bool IsCancelled { get; set; }
 		public delegate void ProgressChanged(object sender, File_Transfer.Model.ReceiverFiles.ProgressChangedEventArgs e);
@@ -57,9 +59,120 @@ namespace File_Transfer.Model.SenderFiles
 		public Sender(ref Connection connection)
         {
 			this.Connection = connection;
+			threadSending = new Thread(()=> {
+				CheckSendingFile();
+			});
             Initialize();
         }
+		private void CheckSendingFile()
+		{
+			while (SendingFileQueue.Count > 0)
+			{
+				var thisFileName = SendingFileQueue[0];
+				SendingFileQueue.Remove(thisFileName);
+				if (!Connection.IsConnected)
+				{
+					SendingFileFinished(SendResult.CannotSend, "当前未连接");
+					return;
+				}
+				try
+				{
+					var returnSendResult = SendResult.Completed;
+					string returnMessage = string.Empty;
+					string returnMessageTitle = string.Empty;
 
+
+
+					byteToSend = GetPacketToSend(thisFileName);
+					byte[] buff = new byte[SEND_BUFFER];
+
+					long noOfPack = (byteToSend.Length % SEND_BUFFER == 0) ?
+						byteToSend.Length / SEND_BUFFER :
+						((byteToSend.Length - (byteToSend.Length % SEND_BUFFER)) / SEND_BUFFER) + 1;
+
+					SendingFileStarted();
+
+					if (Connection != null)
+					{
+						int loopStep = 0;
+						while (noOfPack > 0)
+						{
+							if (!Connection.CanWrite)
+							{
+								returnSendResult = SendResult.CannotSend;
+								returnMessage = "文件不可写";
+
+								return;
+							}
+							if (IsCancelled)
+							{
+								returnSendResult = SendResult.Cancelled;
+								returnMessage = "传输被取消";
+
+								return;
+							}
+
+							if (noOfPack > 1)
+								Array.Copy(byteToSend, loopStep * SEND_BUFFER, buff, 0, SEND_BUFFER);
+							else
+								Array.Copy(byteToSend, loopStep * SEND_BUFFER, buff, 0, byteToSend.Length % SEND_BUFFER);
+
+							Connection.Write(buff, 0, buff.Length);
+
+							totalSent += buff.Length;
+
+							--noOfPack;
+							++loopStep;
+						}
+						returnSendResult = SendResult.Completed;
+						returnMessage = "文件已传输完成";
+
+					}
+					else
+					{
+						returnSendResult = SendResult.CannotSend;
+						returnMessage = "传输文件异常";
+					}
+					SendingFileFinished(returnSendResult, returnMessage, returnMessageTitle);
+				}
+				catch (ArgumentNullException)
+				{
+					SendingFileFinished(SendResult.CannotSend, "无参数");
+				}
+				catch (ArgumentException)
+				{
+					SendingFileFinished(SendResult.CannotSend, "参数异常");
+				}
+				catch (PathTooLongException)
+				{
+					SendingFileFinished(SendResult.CannotSend, "文件路径过长");
+				}
+				catch (DirectoryNotFoundException)
+				{
+					SendingFileFinished(SendResult.CannotSend, "未找到路径");
+				}
+				catch (IOException ex)
+				{
+
+					if (ex.InnerException is Win32Exception errcode && errcode.ErrorCode == 10054)
+					{
+						SendingFileFinished(SendResult.CannotSend, "信道被占用");
+					}
+					else
+					{
+						SendingFileFinished(SendResult.CannotSend, "IO异常:" + ex.Message);
+					}
+				}
+				catch (UnauthorizedAccessException)
+				{
+					SendingFileFinished(SendResult.CannotSend, "无访问权限");
+				}
+				catch (Exception exception)
+				{
+					SendingFileFinished(SendResult.CannotSend, exception.Message);
+				}
+			}
+		}
         private void Initialize()
         {
             IsCancelled = false;
@@ -101,7 +214,7 @@ namespace File_Transfer.Model.SenderFiles
 
 
 
-        private byte[] GetPacketToSend()
+        private byte[] GetPacketToSend(string SendFileName)
         {
             FileInfo file = new FileInfo(SendFileName);
             string fileInfoStr = file.Length.ToString() + "|" + file.Name + "|";
@@ -142,108 +255,12 @@ namespace File_Transfer.Model.SenderFiles
             }
         }
 
-        public  void SendFile()
-        {
-			if (!Connection.IsConnected) {
-				SendingFileFinished(SendResult.CannotSend, "当前未连接");
-				return;
-			}
-            try
-            {
-				var returnSendResult=SendResult.Completed;
-                string returnMessage = string.Empty;
-                string returnMessageTitle = string.Empty;
-
-                
-
-                byteToSend = GetPacketToSend();
-                byte[] buff = new byte[SEND_BUFFER];
-
-                long noOfPack = (byteToSend.Length % SEND_BUFFER == 0) ?
-                    byteToSend.Length / SEND_BUFFER :
-                    ((byteToSend.Length - (byteToSend.Length % SEND_BUFFER)) / SEND_BUFFER) + 1;
-
-                SendingFileStarted();
-
-                  if (Connection != null)
-                  {
-                      int loopStep = 0;
-                      while (noOfPack > 0)
-                      {
-                          if (!Connection.CanWrite)
-                          {
-                              returnSendResult = SendResult.CannotSend;
-                              returnMessage = "文件不可写";
-
-                              return;
-                          }
-                          if (IsCancelled)
-                          {
-                              returnSendResult = SendResult.Cancelled;
-                              returnMessage ="传输被取消";
-
-                              return;
-                          }
-
-                          if (noOfPack > 1) 
-                              Array.Copy(byteToSend, loopStep * SEND_BUFFER, buff, 0, SEND_BUFFER);
-                          else 
-                              Array.Copy(byteToSend, loopStep * SEND_BUFFER, buff, 0, byteToSend.Length % SEND_BUFFER);
-
-                           Connection.Write(buff, 0, buff.Length);
-
-                          totalSent += buff.Length;
-
-                          --noOfPack;
-                          ++loopStep;
-                      }
-                      returnSendResult = SendResult.Completed;
-                      returnMessage ="文件已传输完成";
-
-                  }
-                  else
-                  {
-                      returnSendResult = SendResult.CannotSend;
-                      returnMessage ="传输文件异常";
-                  }
-                SendingFileFinished(returnSendResult, returnMessage, returnMessageTitle);
-            }
-            catch (ArgumentNullException)
-            {
-				SendingFileFinished(SendResult.CannotSend, "无参数");
-            }
-            catch (ArgumentException)
-            {
-				SendingFileFinished(SendResult.CannotSend, "参数异常");
-            }
-            catch (PathTooLongException)
-            {
-				SendingFileFinished(SendResult.CannotSend, "文件路径过长");
-            }
-            catch (DirectoryNotFoundException)
-            {
-				SendingFileFinished(SendResult.CannotSend, "未找到路径");
-            }
-            catch (IOException ex)
-            {
-
-				if (ex.InnerException is Win32Exception errcode && errcode.ErrorCode == 10054)
-				{
-					SendingFileFinished(SendResult.CannotSend, "信道被占用");
-				}
-				else
-				{
-					SendingFileFinished(SendResult.CannotSend, "IO异常:" + ex.Message);
-				}
-			}
-            catch (UnauthorizedAccessException)
-            {
-				SendingFileFinished(SendResult.CannotSend, "无访问权限");
-            }
-            catch (Exception exception)
-            {
-				SendingFileFinished(SendResult.CannotSend, exception.Message);
-            }
+        public  void SendFile(string  fileName)
+		{
+			if (SendingFileQueue.Contains(fileName)) return;
+			SendingFileQueue.Add(fileName);
+			if (IsSending) return;
+			threadSending.Start();
         }
 
 		#region IDisposable Support

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
 
 namespace File_Transfer.Model.SenderFiles
@@ -13,14 +14,11 @@ namespace File_Transfer.Model.SenderFiles
 
         int SendPortNumber { get; set; }
 
-        string SendFileName { get; set; }
-
- 
 
 
         bool IsSending { get;  set; }
 
-        void SendFile();
+        void SendFile(string fileName);
 
         bool CancelSendingFile();
     }
