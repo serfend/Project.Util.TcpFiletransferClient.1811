@@ -114,7 +114,11 @@ namespace File_Transfer.Model.ReceiverFiles
 
 				ReceivedFileInfo FileInfo = ReadFileInfoFromByte(fileInfoByte);
 				fileSize = FileInfo.FileSize;
-
+				if (fileSize == 0)
+				{
+					ReceivingFileFinished(ReceiveResult.CannotReceived, "文件长度为0","连接失败");
+					return;
+				}
 				using (FileStream fstream = new FileStream(ReceiveSaveLocation + @"\" + FileInfo.FileName, FileMode.Create, FileAccess.ReadWrite))
 				{
 					byte[] buff = new byte[RECEIVE_BUFFER];
@@ -167,16 +171,23 @@ namespace File_Transfer.Model.ReceiverFiles
 		}
 		private ReceivedFileInfo ReadFileInfoFromByte(byte[] fileInfoByte)
 		{
-			string fileInfoStr = Encoding.UTF8.GetString(fileInfoByte);
-			int firstPaddingIndex = fileInfoStr.IndexOf('|');
-			int lastPaddingIndex = fileInfoStr.LastIndexOf('|');
+			try
+			{
+				string fileInfoStr = Encoding.UTF8.GetString(fileInfoByte);
+				int firstPaddingIndex = fileInfoStr.IndexOf('|');
+				int lastPaddingIndex = fileInfoStr.LastIndexOf('|');
+				long fileSize = long.Parse(fileInfoStr.Substring(0, firstPaddingIndex));
+				string fileName = fileInfoStr.Substring(firstPaddingIndex + 1, (lastPaddingIndex - firstPaddingIndex) - 1);
 
-			long fileSize = long.Parse(fileInfoStr.Substring(0, firstPaddingIndex));
-			string fileName = fileInfoStr.Substring(firstPaddingIndex + 1, (lastPaddingIndex - firstPaddingIndex) - 1);
+				fileInfoStr = null;
 
-			fileInfoStr = null;
-
-			return new ReceivedFileInfo() { FileName = fileName, FileSize = fileSize };
+				return new ReceivedFileInfo() { FileName = fileName, FileSize = fileSize };
+			}
+			catch (Exception)
+			{
+				return new ReceivedFileInfo();
+			}
+			
 		}
 
 		public void CancelReceivingFile()
