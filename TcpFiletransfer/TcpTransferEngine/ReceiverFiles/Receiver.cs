@@ -73,7 +73,7 @@ namespace File_Transfer.Model.ReceiverFiles
 				ProgressChangedEvent?.Invoke(this,new ProgressChangedEventArgs(totalReceived, fileSize, ElapsedTime.ElapsedMilliseconds));
 		}
 
-		private void ReceivingFileStarted()
+		private void ReceivingFileStarted(string fileName)
 		{
 			IsFileReceiving = true;
 			ElapsedTime.Reset();
@@ -81,7 +81,7 @@ namespace File_Transfer.Model.ReceiverFiles
 
 			ProgressChangedInvoker.Enabled = true;
 
-			ReceivingStartedEvent?.Invoke(this,new ReceivingStartedEventArgs());
+			ReceivingStartedEvent?.Invoke(this,new ReceivingStartedEventArgs(fileName));
 		}
 
 		private void ReceivingFileFinished(ReceiveResult result, string message, string title)
@@ -120,7 +120,7 @@ namespace File_Transfer.Model.ReceiverFiles
 					byte[] buff = new byte[RECEIVE_BUFFER];
 					int buffered = 0;
 
-					ReceivingFileStarted();
+					ReceivingFileStarted(FileInfo.FileName);
 
 
 					if (!Connection.CanRead)

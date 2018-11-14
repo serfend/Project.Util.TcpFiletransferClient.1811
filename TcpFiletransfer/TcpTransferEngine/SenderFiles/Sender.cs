@@ -59,20 +59,30 @@ namespace File_Transfer.Model.SenderFiles
 		public Sender(ref Connection connection)
         {
 			this.Connection = connection;
-			threadSending = new Thread(()=> {
-				CheckSendingFile();
-			});
+			
             Initialize();
         }
+		public void newThreadSending()
+		{
+			if (threadSending == null||threadSending.ThreadState!=System.Threading.ThreadState.Running)
+			{
+				threadSending = new Thread(() => {
+					CheckSendingFile();
+				});
+			};
+		}
 		private void CheckSendingFile()
 		{
+			
 			while (SendingFileQueue.Count > 0)
 			{
 				var thisFileName = SendingFileQueue[0];
 				SendingFileQueue.Remove(thisFileName);
+				IsSending = true;
 				if (!Connection.IsConnected)
 				{
 					SendingFileFinished(SendResult.CannotSend, "当前未连接");
+					IsSending = false;
 					return;
 				}
 				try
@@ -90,7 +100,7 @@ namespace File_Transfer.Model.SenderFiles
 						byteToSend.Length / SEND_BUFFER :
 						((byteToSend.Length - (byteToSend.Length % SEND_BUFFER)) / SEND_BUFFER) + 1;
 
-					SendingFileStarted();
+					SendingFileStarted(thisFileName);
 
 					if (Connection != null)
 					{
@@ -188,7 +198,7 @@ namespace File_Transfer.Model.SenderFiles
                 ProgressChangedEvent?.Invoke(this,new ReceiverFiles.ProgressChangedEventArgs(totalSent, byteToSend.Length, ElapsedTime.ElapsedMilliseconds));
         }
 
-        private void SendingFileStarted()
+        private void SendingFileStarted(string fileName)
         {
             IsSending = true;
 
@@ -197,7 +207,7 @@ namespace File_Transfer.Model.SenderFiles
 
             ProgressChangedInvoker.Enabled = true;
 
-            SendingFileStartedEvent?.Invoke(this,new SendingFileStartedEventArgs());
+            SendingFileStartedEvent?.Invoke(this,new SendingFileStartedEventArgs(fileName));
         }
 
         private void SendingFileFinished(SendResult result, string message, string title="传输文件失败")
@@ -260,8 +270,9 @@ namespace File_Transfer.Model.SenderFiles
 			if (SendingFileQueue.Contains(fileName)) return;
 			SendingFileQueue.Add(fileName);
 			if (IsSending) return;
-			threadSending.Start();
-        }
+			newThreadSending();
+
+		}
 
 		#region IDisposable Support
 		private bool disposedValue = false; // 要检测冗余调用

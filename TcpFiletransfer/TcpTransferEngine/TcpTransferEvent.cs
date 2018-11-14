@@ -46,7 +46,15 @@ namespace File_Transfer.Model.ReceiverFiles
 		public string Message { get => message; set => message = value; }
 		public string Title { get => title; set => title = value; }
 	}
-	public class SendingFileStartedEventArgs : EventArgs{}
+	public class SendingFileStartedEventArgs : EventArgs{
+		private string fileName;
+		public SendingFileStartedEventArgs(string fileName)
+		{
+			this.FileName = fileName;
+		}
+
+		public string FileName { get => fileName; set => fileName = value; }
+	}
 	public class ConnectToServerEventArgs : EventArgs {
 		private bool success;
 		private string info;
@@ -83,7 +91,12 @@ namespace File_Transfer.Model.ReceiverFiles
 	}
 	public class ReceivingStartedEventArgs : EventArgs
 	{
-
+		private string fileName;
+		public ReceivingStartedEventArgs(string fileName)
+		{
+			this.fileName = fileName;
+		}
+		public string FileName { get => fileName; set => fileName = value; }
 	}
 	public class ListenStartedEventArgs : EventArgs
 	{
