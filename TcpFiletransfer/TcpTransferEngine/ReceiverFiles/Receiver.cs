@@ -106,18 +106,24 @@ namespace File_Transfer.Model.ReceiverFiles
 		{
 			try
 			{
-				
 
-				byte[] fileInfoByte = new byte[INFO_BUFFER];
-
-				Connection.Read(fileInfoByte, 0, (int)INFO_BUFFER);
-
-				string fileInfoStr = Encoding.UTF8.GetString(fileInfoByte);
-				ReceivedFileInfo FileInfo = ReadFileInfoFromByte(fileInfoByte);
-				fileSize = FileInfo.FileSize;
-				if (fileSize == 0)
+				int tryTime = 0;
+				ReceivedFileInfo FileInfo=new ReceivedFileInfo();
+				while (tryTime++ < 3)
 				{
-					ReceivingFileFinished(ReceiveResult.CannotReceived, "文件长度为0","连接失败");
+
+					byte[] fileInfoByte = new byte[INFO_BUFFER];
+
+					Connection.Read(fileInfoByte, 0, (int)INFO_BUFFER);
+
+					string fileInfoStr = Encoding.UTF8.GetString(fileInfoByte);
+					FileInfo = ReadFileInfoFromByte(fileInfoByte);
+					fileSize = FileInfo.FileSize;
+					if (fileSize > 0)break;
+				}
+				if (tryTime >= 3)
+				{
+					ReceivingFileFinished(ReceiveResult.CannotReceived, "文件长度为0", "连接失败");
 					return;
 				}
 				using (FileStream fstream = new FileStream(ReceiveSaveLocation + @"\" + FileInfo.FileName, FileMode.Create, FileAccess.ReadWrite))
@@ -150,11 +156,10 @@ namespace File_Transfer.Model.ReceiverFiles
 						ReceivingFileFinished(ReceiveResult.CannotReceived, "接收到的数据不完整", "连接错误");
 						return;
 					}
-					//准备开始下次传输的等待
-					Connection.Clear();
-					var data = Encoding.UTF8.GetBytes("#####");
-					Connection.Write(data, 0, 5);
-					ReceivingFileFinished(ReceiveResult.Completed, "", "");
+					////TODO 准备开始下次传输的等待
+					//var data = Encoding.UTF8.GetBytes("#####");
+					//Connection.Write(data, 0, 5);
+					//ReceivingFileFinished(ReceiveResult.Completed, "", "");
 				}
 			}
 			catch (IOException ex)

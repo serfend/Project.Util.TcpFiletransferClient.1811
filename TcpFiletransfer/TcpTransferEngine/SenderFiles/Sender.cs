@@ -72,18 +72,18 @@ namespace File_Transfer.Model.SenderFiles
 				threadSending.Start();
 			};
 		}
-		public bool CanDoNext = true;
+		//public bool CanDoNext = true;
 		private void CheckSendingFile()
 		{
 			
 			while (SendingFileQueue.Count > 0)
 			{
-				if (!CanDoNext) {
-					Thread.Sleep(50);//等待客户端
-					var data = new byte[5];
-					var anyMessage = Connection.Read(data, 0, 5);
-					Console.WriteLine(Encoding.UTF8.GetString(data));
-				}
+				//if (!CanDoNext) {
+				//	Thread.Sleep(50);//TODO 等待客户端
+				//	var data = new byte[5];
+				//	var anyMessage = Connection.Read(data, 0, 5);
+				//	Console.WriteLine(Encoding.UTF8.GetString(data));
+				//}
 				var thisFileName = SendingFileQueue[0];
 				SendingFileQueue.Remove(thisFileName);
 				IsSending = true;
@@ -152,7 +152,7 @@ namespace File_Transfer.Model.SenderFiles
 						returnSendResult = SendResult.CannotSend;
 						returnMessage = "传输文件异常";
 					}
-					Connection.Clear();//清空缓存等待下次文件的传输
+					Connection.Clear();//TODO 清空缓存等待下次文件的传输
 					SendingFileFinished(returnSendResult, returnMessage, returnMessageTitle);
 				}
 				catch (ArgumentNullException)
@@ -196,7 +196,7 @@ namespace File_Transfer.Model.SenderFiles
 					//TODO 此处不应关闭连接 Connection.Dispose();
 				}
 			}
-			CanDoNext = true;
+			//CanDoNext = true;
 		}
         private void Initialize()
         {
