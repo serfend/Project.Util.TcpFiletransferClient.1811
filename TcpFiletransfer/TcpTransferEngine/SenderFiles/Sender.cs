@@ -42,9 +42,9 @@ namespace File_Transfer.Model.SenderFiles
 		private List<string> SendingFileQueue=new List<string>();
 
         private bool IsCancelled { get; set; }
-		public delegate void ProgressChanged(object sender, File_Transfer.Model.ReceiverFiles.ProgressChangedEventArgs e);
-		public delegate void SendingCompleted(object sender, SendingCompletedEventArgs e);
-        public delegate void SendingFileStartedEventHandler(object sender,SendingFileStartedEventArgs e);
+		public delegate void ProgressChanged(Sender sender, File_Transfer.Model.ReceiverFiles.ProgressChangedEventArgs e);
+		public delegate void SendingCompleted(Sender sender, SendingCompletedEventArgs e);
+        public delegate void SendingFileStartedEventHandler(Sender sender,SendingFileStartedEventArgs e);
 		
 
 		
@@ -54,6 +54,8 @@ namespace File_Transfer.Model.SenderFiles
 
         public bool IsWaitingForConnect { get; set; } = false;
         public bool IsSending { get; set; }
+		public string NowHdlFileName { get => nowHdlFileName;private set => nowHdlFileName = value; }
+
 		private Connection Connection;
 
 		public Sender(ref Connection connection)
@@ -72,20 +74,22 @@ namespace File_Transfer.Model.SenderFiles
 				threadSending.Start();
 			};
 		}
-		//public bool CanDoNext = true;
+		public bool CanDoNext = true;
+		private string nowHdlFileName;
 		private void CheckSendingFile()
 		{
 			
 			while (SendingFileQueue.Count > 0)
 			{
-				//if (!CanDoNext) {
-				//	Thread.Sleep(50);//TODO 等待客户端
-				//	var data = new byte[5];
-				//	var anyMessage = Connection.Read(data, 0, 5);
-				//	Console.WriteLine(Encoding.UTF8.GetString(data));
-				//}
-				var thisFileName = SendingFileQueue[0];
-				SendingFileQueue.Remove(thisFileName);
+				if (!CanDoNext)
+				{
+					Thread.Sleep(50);//TODO 等待客户端
+					var data = new byte[5];
+					var anyMessage = Connection.Read(data, 0, 5);
+					Console.WriteLine(Encoding.UTF8.GetString(data));
+				}
+				NowHdlFileName = SendingFileQueue[0];
+				SendingFileQueue.Remove(NowHdlFileName);
 				IsSending = true;
 				CanDoNext = false;
 				if (!Connection.IsConnected)
@@ -102,14 +106,14 @@ namespace File_Transfer.Model.SenderFiles
 
 
 
-					byteToSend = GetPacketToSend(thisFileName);
+					byteToSend = GetPacketToSend(NowHdlFileName);
 					byte[] buff = new byte[SEND_BUFFER];
 
 					long noOfPack = (byteToSend.Length % SEND_BUFFER == 0) ?
 						byteToSend.Length / SEND_BUFFER :
 						((byteToSend.Length - (byteToSend.Length % SEND_BUFFER)) / SEND_BUFFER) + 1;
 
-					SendingFileStarted(thisFileName);
+					SendingFileStarted(NowHdlFileName);
 
 					if (Connection != null)
 					{
@@ -130,15 +134,13 @@ namespace File_Transfer.Model.SenderFiles
 
 								return;
 							}
+							int thisTimeSendLength = 0;
 
-							if (noOfPack > 1)
-								Array.Copy(byteToSend, loopStep * SEND_BUFFER, buff, 0, SEND_BUFFER);
-							else
-								Array.Copy(byteToSend, loopStep * SEND_BUFFER, buff, 0, byteToSend.Length % SEND_BUFFER);
-
-							Connection.Write(buff, 0, buff.Length);
-
-							totalSent += buff.Length;
+							if (noOfPack > 1){thisTimeSendLength = buff.Length;}
+							else{thisTimeSendLength =(int)(byteToSend.Length % SEND_BUFFER);}
+							Array.Copy(byteToSend, loopStep * SEND_BUFFER, buff, 0, thisTimeSendLength);
+							Connection.Write(buff, 0, thisTimeSendLength);
+							totalSent += thisTimeSendLength;
 
 							--noOfPack;
 							++loopStep;
@@ -196,7 +198,7 @@ namespace File_Transfer.Model.SenderFiles
 					//TODO 此处不应关闭连接 Connection.Dispose();
 				}
 			}
-			//CanDoNext = true;
+			CanDoNext = true;
 		}
         private void Initialize()
         {

@@ -23,12 +23,12 @@ namespace TcpFiletransfer.TcpTransferEngine.Connections
 
 		private TcpClient TcpClient;
 		#region 服务端
-		public delegate void ConnectedToServerEventHandler(object sender, ConnectToServerEventArgs e);
+		public delegate void ConnectedToServerEventHandler(Connection sender, ConnectToServerEventArgs e);
 		public event ConnectedToServerEventHandler ConnectedToServer;
 
 		#endregion
 		#region 客户端
-		public delegate void ConnectToClientEventHandler(object sender, ConnectToClientEventArgs e);
+		public delegate void ConnectToClientEventHandler(Connection sender, ConnectToClientEventArgs e);
 		public event ConnectToClientEventHandler ConnectToClient;
 		#endregion
 

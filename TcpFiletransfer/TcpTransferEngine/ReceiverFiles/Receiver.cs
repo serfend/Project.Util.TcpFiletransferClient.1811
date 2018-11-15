@@ -44,9 +44,9 @@ namespace File_Transfer.Model.ReceiverFiles
 
 		private bool CancelFileReceiving { get; set; }
 
-		public delegate void ProgressChanged(object sender,ProgressChangedEventArgs e);
-		public delegate void ReceivingStarted(object sender, ReceivingStartedEventArgs e);
-		public delegate void ReceivingCompleted(object sender, ReceivingCompletedEventArgs e);
+		public delegate void ProgressChanged(Receiver sender,ProgressChangedEventArgs e);
+		public delegate void ReceivingStarted(Receiver sender, ReceivingStartedEventArgs e);
+		public delegate void ReceivingCompleted(Receiver sender, ReceivingCompletedEventArgs e);
 
 		public event ProgressChanged ProgressChangedEvent;
 		public event ReceivingStarted ReceivingStartedEvent;
@@ -156,10 +156,10 @@ namespace File_Transfer.Model.ReceiverFiles
 						ReceivingFileFinished(ReceiveResult.CannotReceived, "接收到的数据不完整", "连接错误");
 						return;
 					}
-					////TODO 准备开始下次传输的等待
-					//var data = Encoding.UTF8.GetBytes("#####");
-					//Connection.Write(data, 0, 5);
-					//ReceivingFileFinished(ReceiveResult.Completed, "", "");
+					//TODO 准备开始下次传输的等待
+					var data = Encoding.UTF8.GetBytes("#####");
+					Connection.Write(data, 0, 5);
+					ReceivingFileFinished(ReceiveResult.Completed, "", "");
 				}
 			}
 			catch (IOException ex)

@@ -44,8 +44,8 @@ namespace TcpFiletransferTest
 					{
 
 						Console.WriteLine("开始传输文件");
-						engine.SendingFile("test.txt");
-						engine.SendingFile("test2.txt");
+						for(int index=1;index<=8;index++)
+							engine.SendingFile(string.Format("test ({0}).txt",index));
 					}
 					else
 					{
@@ -59,7 +59,7 @@ namespace TcpFiletransferTest
 			{
 				var port =Convert.ToInt32( Console.ReadLine());
 				var engine = new TransferFileEngine(EngineModel.AsClient, "1s68948k74.imwork.net", port);
-				int totalFileNum = 2,nowFileNum=0;
+				int totalFileNum = 8,nowFileNum=0;
 				engine.Connection.ConnectedToServer += (x, xx) => {
 					if (xx.Success)
 					{
