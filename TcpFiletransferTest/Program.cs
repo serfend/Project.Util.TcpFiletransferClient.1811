@@ -20,17 +20,23 @@ namespace TcpFiletransferTest
 		{
 			if (Console.ReadLine() == "send")
 			{
-				Console.WriteLine("准备发送");
-
-				var engine = new TransferFileEngine(EngineModel.AsServer, "any", 8009);
-				var fTestpath = Environment.CurrentDirectory + "//test.txt";
+				
+				var port = Convert.ToInt32(Console.ReadLine());
+				var engine = new TransferFileEngine(EngineModel.AsServer, "any", port);
 
 				engine.Sender.ProgressChangedEvent += (x, xx) => {
 					Console.WriteLine(xx.ToString());
 				};
 				engine.Sender.SendingCompletedEvent += (x, xx) =>
 				{
-					Console.Write("文件传输完成" + xx.Message);
+					if (xx.Result == File_Transfer.Model.SenderFiles.SendResult.Completed)
+					{
+						Console.WriteLine("文件传输完成" + xx.Message);
+					}
+					else
+					{
+						Console.WriteLine(xx.Title + ":" + xx.Message);
+					}
 				};
 				engine.Connection.ConnectToClient += (x, xx) =>
 				{
@@ -38,21 +44,22 @@ namespace TcpFiletransferTest
 					{
 
 						Console.WriteLine("开始传输文件");
-						engine.SendingFile(fTestpath);
-
+						engine.SendingFile("test.txt");
+						engine.SendingFile("test2.txt");
 					}
 					else
 					{
 						Console.WriteLine("连接失败"+xx.Info);
 					}
 				};
+				Console.WriteLine("准备发送");
 				engine.Connect();
 			}
 			else
 			{
-				Console.WriteLine("等待接收");
-				var engine = new TransferFileEngine(EngineModel.AsClient, "1s68948k74.imwork.net", 16397);
-
+				var port =Convert.ToInt32( Console.ReadLine());
+				var engine = new TransferFileEngine(EngineModel.AsClient, "1s68948k74.imwork.net", port);
+				int totalFileNum = 2,nowFileNum=0;
 				engine.Connection.ConnectedToServer += (x, xx) => {
 					if (xx.Success)
 					{
@@ -65,8 +72,19 @@ namespace TcpFiletransferTest
 					}
 				};
 				engine.Receiver.ReceivingCompletedEvent += (x, xx) => {
-					Console.WriteLine(xx.Result.ToString());
+					if (xx.Result == ReceiveResult.Completed)
+					{
+						Console.WriteLine("文件接收完成("+ ++nowFileNum +"/" + totalFileNum+")");
+						if(nowFileNum <totalFileNum) engine.ReceiveFile(Environment.CurrentDirectory + "//recv");
+					}
+					else
+					{
+						Console.WriteLine(xx.Title + ":" + xx.Message);
+					}
 				};
+
+				Console.WriteLine("等待接收");
+
 				engine.Connect();
 			}
 

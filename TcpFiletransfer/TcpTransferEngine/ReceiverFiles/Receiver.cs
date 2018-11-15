@@ -87,7 +87,7 @@ namespace File_Transfer.Model.ReceiverFiles
 		private void ReceivingFileFinished(ReceiveResult result, string message, string title)
 		{
 			IsFileReceiving = false;
-
+			
 			ElapsedTime.Stop();
 
 			ProgressChangedInvoker.Enabled = false;
@@ -112,6 +112,7 @@ namespace File_Transfer.Model.ReceiverFiles
 
 				Connection.Read(fileInfoByte, 0, (int)INFO_BUFFER);
 
+				string fileInfoStr = Encoding.UTF8.GetString(fileInfoByte);
 				ReceivedFileInfo FileInfo = ReadFileInfoFromByte(fileInfoByte);
 				fileSize = FileInfo.FileSize;
 				if (fileSize == 0)
@@ -132,7 +133,7 @@ namespace File_Transfer.Model.ReceiverFiles
 						ReceivingFileFinished(ReceiveResult.CannotReceived, "连接无法读取", "连接失效");
 						return;
 					}
-					while ((buffered = Connection.Read(buff, 0, buff.Length)) > 0)
+					while ((buffered = Connection.Read(buff, 0, FileInfo.FileSize-totalReceived> buff.Length?buff.Length:(int)(FileInfo.FileSize - totalReceived))) > 0)
 					{
 						if (CancelFileReceiving)
 						{
@@ -141,6 +142,7 @@ namespace File_Transfer.Model.ReceiverFiles
 						}
 						fstream.Write(buff, 0, buffered);
 						totalReceived += buffered;
+						if (totalReceived >= FileInfo.FileSize) break;
 					}
 
 					if (totalReceived < FileInfo.FileSize)
@@ -148,7 +150,10 @@ namespace File_Transfer.Model.ReceiverFiles
 						ReceivingFileFinished(ReceiveResult.CannotReceived, "接收到的数据不完整", "连接错误");
 						return;
 					}
-
+					//准备开始下次传输的等待
+					Connection.Clear();
+					var data = Encoding.UTF8.GetBytes("#####");
+					Connection.Write(data, 0, 5);
 					ReceivingFileFinished(ReceiveResult.Completed, "", "");
 				}
 			}
@@ -213,7 +218,6 @@ namespace File_Transfer.Model.ReceiverFiles
 					
 					if (Connection != null)
 					{
-						Connection.DisConnect();
 						Connection.Dispose();
 						
 					}

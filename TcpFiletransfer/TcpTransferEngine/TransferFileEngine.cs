@@ -2,6 +2,7 @@
 using File_Transfer.Model.SenderFiles;
 using System;
 using System.Net;
+using System.Text;
 using TcpFiletransfer.TcpTransferEngine.Connections;
 using static TcpFiletransfer.TcpTransferEngine.Connections.Connection;
 
@@ -22,9 +23,10 @@ namespace File_Transfer
 			sender = new Sender(ref Connection);
 			receiver = new Receiver(ref Connection);
 		}
+
 		public void Disconnect()
 		{
-			Connection.DisConnect();
+			Connection.Dispose();
 		}
 		public void Connect() => Connection.Connect();
 		public void SendingFile(string fileName)
@@ -49,7 +51,6 @@ namespace File_Transfer
 			{
 				if (disposing)
 				{
-					Connection.DisConnect();
 					Connection.Dispose();
 					if (sender != null) sender.Dispose();
 					if (receiver != null) receiver.Dispose();

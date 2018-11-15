@@ -62,23 +62,32 @@ namespace File_Transfer.Model.SenderFiles
 			
             Initialize();
         }
-		public void newThreadSending()
+		public void NewThreadSending()
 		{
 			if (threadSending == null||threadSending.ThreadState!=System.Threading.ThreadState.Running)
 			{
 				threadSending = new Thread(() => {
 					CheckSendingFile();
 				});
+				threadSending.Start();
 			};
 		}
+		public bool CanDoNext = true;
 		private void CheckSendingFile()
 		{
 			
 			while (SendingFileQueue.Count > 0)
 			{
+				if (!CanDoNext) {
+					Thread.Sleep(50);//等待客户端
+					var data = new byte[5];
+					var anyMessage = Connection.Read(data, 0, 5);
+					Console.WriteLine(Encoding.UTF8.GetString(data));
+				}
 				var thisFileName = SendingFileQueue[0];
 				SendingFileQueue.Remove(thisFileName);
 				IsSending = true;
+				CanDoNext = false;
 				if (!Connection.IsConnected)
 				{
 					SendingFileFinished(SendResult.CannotSend, "当前未连接");
@@ -110,7 +119,7 @@ namespace File_Transfer.Model.SenderFiles
 							if (!Connection.CanWrite)
 							{
 								returnSendResult = SendResult.CannotSend;
-								returnMessage = "文件不可写";
+								returnMessage = "网络连接错误，无法发送";
 
 								return;
 							}
@@ -136,13 +145,14 @@ namespace File_Transfer.Model.SenderFiles
 						}
 						returnSendResult = SendResult.Completed;
 						returnMessage = "文件已传输完成";
-
+						
 					}
 					else
 					{
 						returnSendResult = SendResult.CannotSend;
 						returnMessage = "传输文件异常";
 					}
+					Connection.Clear();//清空缓存等待下次文件的传输
 					SendingFileFinished(returnSendResult, returnMessage, returnMessageTitle);
 				}
 				catch (ArgumentNullException)
@@ -181,7 +191,12 @@ namespace File_Transfer.Model.SenderFiles
 				{
 					SendingFileFinished(SendResult.CannotSend, exception.Message);
 				}
+				finally
+				{
+					//TODO 此处不应关闭连接 Connection.Dispose();
+				}
 			}
+			CanDoNext = true;
 		}
         private void Initialize()
         {
@@ -218,8 +233,7 @@ namespace File_Transfer.Model.SenderFiles
             ProgressChangedInvoker.Enabled = false;
             totalSent = 0;
             byteToSend = null;
-
-            SendingCompletedEvent?.Invoke(this,new SendingCompletedEventArgs(result, message, title));
+			SendingCompletedEvent?.Invoke(this,new SendingCompletedEventArgs(result, message, title));
         }
 
 
@@ -270,7 +284,7 @@ namespace File_Transfer.Model.SenderFiles
 			if (SendingFileQueue.Contains(fileName)) return;
 			SendingFileQueue.Add(fileName);
 			if (IsSending) return;
-			newThreadSending();
+			NewThreadSending();
 
 		}
 
@@ -286,7 +300,6 @@ namespace File_Transfer.Model.SenderFiles
 
 					if (Connection != null)
 					{
-						Connection.DisConnect();
 						Connection.Dispose();
 						
 					}

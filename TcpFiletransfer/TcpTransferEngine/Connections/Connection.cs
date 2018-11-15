@@ -63,6 +63,7 @@ namespace TcpFiletransfer.TcpTransferEngine.Connections
 				WaitForConnect();
 			}
 		}
+		public void Clear()=>NetworkStream.Flush();	
 		private void ConnectTo()
 		{
 			if (!IsConnected)
@@ -95,7 +96,15 @@ namespace TcpFiletransfer.TcpTransferEngine.Connections
 
 		public int Read(byte[] data,int offset,int size) 
 		{
-			return NetworkStream.Read(data, offset, size);
+			try
+			{
+				return NetworkStream.Read(data, offset, size);
+			}
+			catch (System.IO.IOException)
+			{
+				return -1;
+			}
+			
 		}
 		public bool CanRead { get => NetworkStream.CanRead; }
 		public bool CanWrite { get => NetworkStream.CanWrite; }
@@ -103,10 +112,7 @@ namespace TcpFiletransfer.TcpTransferEngine.Connections
 		{
 			NetworkStream.Write(data, offset, size);
 		}
-		public void DisConnect()
-		{
-			NetworkStream.Close();
-		}
+
 
 		private void WaitForConnect()
 		{
