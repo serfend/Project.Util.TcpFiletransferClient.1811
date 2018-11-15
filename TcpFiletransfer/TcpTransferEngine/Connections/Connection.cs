@@ -165,6 +165,7 @@ namespace TcpFiletransfer.TcpTransferEngine.Connections
 					if (NetworkStream != null) NetworkStream.Dispose();
 					if (Soket != null) Soket.Dispose();
 					if (TcpClient != null) TcpClient.Close();
+					if (TcpListener != null) TcpListener.Stop();
 					
 				}
 				NetworkStream = null;

@@ -238,8 +238,6 @@ namespace File_Transfer.Model.SenderFiles
 			SendingCompletedEvent?.Invoke(this,new SendingCompletedEventArgs(result, message, title));
         }
 
-
-
         private byte[] GetPacketToSend(string SendFileName)
         {
             FileInfo file = new FileInfo(SendFileName);

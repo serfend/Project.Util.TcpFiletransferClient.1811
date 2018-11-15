@@ -159,7 +159,7 @@ namespace File_Transfer.Model.ReceiverFiles
 					//TODO 准备开始下次传输的等待
 					var data = Encoding.UTF8.GetBytes("#####");
 					Connection.Write(data, 0, 5);
-					ReceivingFileFinished(ReceiveResult.Completed, "", "");
+					ReceivingFileFinished(ReceiveResult.Completed, "file:"+FileInfo.FileName+",size:"+FileInfo.FileSize, "接收完成");
 				}
 			}
 			catch (IOException ex)
