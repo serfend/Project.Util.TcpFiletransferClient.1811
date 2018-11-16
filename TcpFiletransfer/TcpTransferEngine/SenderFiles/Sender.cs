@@ -26,7 +26,6 @@ namespace File_Transfer.Model.SenderFiles
     public class Sender : ISender
     {
         private const long SEND_BUFFER = 2048;
-        private const long INFO_BUFFER = 512;
 
         private long totalSent = 0;
         private byte[] byteToSend;
@@ -39,7 +38,7 @@ namespace File_Transfer.Model.SenderFiles
 
         public string SendIpAdress { get; set; }
         public int SendPortNumber { get; set; }
-		private List<string> SendingFileQueue=new List<string>();
+		public Queue<string> SendingFileQueue=new Queue<string>();
 
         private bool IsCancelled { get; set; }
 		public delegate void ProgressChanged(Sender sender, File_Transfer.Model.ReceiverFiles.ProgressChangedEventArgs e);
@@ -88,8 +87,7 @@ namespace File_Transfer.Model.SenderFiles
 					var anyMessage = Connection.Read(data, 0, 5);
 					Console.WriteLine(Encoding.UTF8.GetString(data));
 				}
-				NowHdlFileName = SendingFileQueue[0];
-				SendingFileQueue.Remove(NowHdlFileName);
+				NowHdlFileName = SendingFileQueue.Dequeue();
 				IsSending = true;
 				CanDoNext = false;
 				if (!Connection.IsConnected)
@@ -154,7 +152,7 @@ namespace File_Transfer.Model.SenderFiles
 						returnSendResult = SendResult.CannotSend;
 						returnMessage = "传输文件异常";
 					}
-					Connection.Clear();//TODO 清空缓存等待下次文件的传输
+					
 					SendingFileFinished(returnSendResult, returnMessage, returnMessageTitle);
 				}
 				catch (ArgumentNullException)
@@ -244,23 +242,23 @@ namespace File_Transfer.Model.SenderFiles
             string fileInfoStr = file.Length.ToString() + "|" + file.Name + "|";
             byte[] fileInfoByte = Encoding.UTF8.GetBytes(fileInfoStr);
 
-            if (fileInfoByte.Length < (int)INFO_BUFFER)
-            {
-                int requiredByte = (int)INFO_BUFFER - fileInfoByte.Length;
+            //if (fileInfoByte.Length < (int)INFO_BUFFER)
+            //{
+            //    int requiredByte = (int)INFO_BUFFER - fileInfoByte.Length;
 
-                for (int i = 0; i < requiredByte; i++)
-                {
-                    fileInfoStr += " ";
-                }
-                fileInfoByte = Encoding.UTF8.GetBytes(fileInfoStr);
-            }
+            //    for (int i = 0; i < requiredByte; i++)
+            //    {
+            //        fileInfoStr += " ";
+            //    }
+            //    fileInfoByte = Encoding.UTF8.GetBytes(fileInfoStr);
+            //}
 
             byte[] byteToSend;
             byte[] fileByte = File.ReadAllBytes(SendFileName);
             byteToSend = new byte[fileByte.Length + fileInfoByte.Length];
 
             fileInfoByte.CopyTo(byteToSend, 0);
-            fileByte.CopyTo(byteToSend, INFO_BUFFER);
+            fileByte.CopyTo(byteToSend, fileInfoByte.Length);
 
             return byteToSend;
         }
@@ -282,7 +280,7 @@ namespace File_Transfer.Model.SenderFiles
         public  void SendFile(string  fileName)
 		{
 			if (SendingFileQueue.Contains(fileName)) return;
-			SendingFileQueue.Add(fileName);
+			SendingFileQueue.Enqueue(fileName);
 			if (IsSending) return;
 			NewThreadSending();
 

@@ -106,26 +106,49 @@ namespace File_Transfer.Model.ReceiverFiles
 		{
 			try
 			{
-
-				int tryTime = 0;
 				ReceivedFileInfo FileInfo=new ReceivedFileInfo();
-				while (tryTime++ < 3)
+
+				byte[] fileInfoByte = new byte[INFO_BUFFER];
+				int firstTimeIn = 0, infoEndPoint=0,tryTime=0;
+				bool mutiReceiveFlag = false;
+				while (true)
 				{
-
-					byte[] fileInfoByte = new byte[INFO_BUFFER];
-
-					Connection.Read(fileInfoByte, 0, (int)INFO_BUFFER);
+					Connection.Read(fileInfoByte, firstTimeIn, (int)(INFO_BUFFER-firstTimeIn));
 
 					string fileInfoStr = Encoding.UTF8.GetString(fileInfoByte);
-					FileInfo = ReadFileInfoFromByte(fileInfoByte);
+					//Console.WriteLine("receiveinfo:" + fileInfoStr);
+					FileInfo = ReadFileInfoFromByte(fileInfoByte, out  infoEndPoint);
 					fileSize = FileInfo.FileSize;
-					if (fileSize > 0)break;
+
+					for (int i = infoEndPoint + 1; i < INFO_BUFFER; i++)
+					{
+						if (fileInfoByte[i] == 0) break;
+						firstTimeIn++;
+					}
+					if((fileSize <= 0 && firstTimeIn > INFO_BUFFER))
+					{
+						ReceivingFileFinished(ReceiveResult.CannotReceived, "文件标头解析失败", "连接失败");
+						return;
+					}
+					else if (fileSize <=0|| tryTime++>3)
+					{
+						ReceivingFileFinished(ReceiveResult.CannotReceived, "文件长度为0", "连接失败");
+						return;
+					}
+					else if (fileSize > 0) break;
+					firstTimeIn++;
+					mutiReceiveFlag = true;
 				}
-				if (tryTime >= 3)
+				if (mutiReceiveFlag)
 				{
-					ReceivingFileFinished(ReceiveResult.CannotReceived, "文件长度为0", "连接失败");
-					return;
+					firstTimeIn = 0;
+					for (int i = infoEndPoint + 1; i < INFO_BUFFER; i++)
+					{
+						if (fileInfoByte[i] == 0) break;
+						firstTimeIn++;
+					}
 				}
+				
 				using (FileStream fstream = new FileStream(ReceiveSaveLocation + @"\" + FileInfo.FileName, FileMode.Create, FileAccess.ReadWrite))
 				{
 					byte[] buff = new byte[RECEIVE_BUFFER];
@@ -139,7 +162,12 @@ namespace File_Transfer.Model.ReceiverFiles
 						ReceivingFileFinished(ReceiveResult.CannotReceived, "连接无法读取", "连接失效");
 						return;
 					}
-					while ((buffered = Connection.Read(buff, 0, FileInfo.FileSize-totalReceived> buff.Length?buff.Length:(int)(FileInfo.FileSize - totalReceived))) > 0)
+					
+					fstream.Write(fileInfoByte, infoEndPoint + 1, firstTimeIn);
+					totalReceived += firstTimeIn;
+					int thisTimeBuffer = FileInfo.FileSize - totalReceived > buff.Length ? buff.Length : (int)(FileInfo.FileSize - totalReceived);
+					if(thisTimeBuffer>0)
+					while ((buffered = Connection.Read(buff, 0, thisTimeBuffer)) > 0)
 					{
 						if (CancelFileReceiving)
 						{
@@ -150,17 +178,22 @@ namespace File_Transfer.Model.ReceiverFiles
 						totalReceived += buffered;
 						if (totalReceived >= FileInfo.FileSize) break;
 					}
-
+					if (totalReceived > FileInfo.FileSize)
+					{
+						Console.WriteLine("超出预期数据量");
+					}
 					if (totalReceived < FileInfo.FileSize)
 					{
 						ReceivingFileFinished(ReceiveResult.CannotReceived, "接收到的数据不完整", "连接错误");
 						return;
 					}
-					//TODO 准备开始下次传输的等待
-					var data = Encoding.UTF8.GetBytes("#####");
-					Connection.Write(data, 0, 5);
-					ReceivingFileFinished(ReceiveResult.Completed, "file:"+FileInfo.FileName+",size:"+FileInfo.FileSize, "接收完成");
+					
 				}
+				//TODO 准备开始下次传输的等待
+				var data = Encoding.UTF8.GetBytes("#####");
+				Connection.Write(data, 0, 5);
+				totalReceived = 0;
+				ReceivingFileFinished(ReceiveResult.Completed, "file:" + FileInfo.FileName + ",size:" + FileInfo.FileSize, "接收完成");
 			}
 			catch (IOException ex)
 			{
@@ -179,18 +212,18 @@ namespace File_Transfer.Model.ReceiverFiles
 				ReceivingFileFinished(ReceiveResult.CannotReceived, "未知错误:" + exception.Message, "文件传输失败");
 			}
 		}
-		private ReceivedFileInfo ReadFileInfoFromByte(byte[] fileInfoByte)
+		private ReceivedFileInfo ReadFileInfoFromByte(byte[] fileInfoByte,out int infoEndPoint)
 		{
+			infoEndPoint = 0;
 			try
 			{
 				string fileInfoStr = Encoding.UTF8.GetString(fileInfoByte);
 				int firstPaddingIndex = fileInfoStr.IndexOf('|');
-				int lastPaddingIndex = fileInfoStr.LastIndexOf('|');
+				int secondPaddingIndex = fileInfoStr.IndexOf('|',firstPaddingIndex+1);
 				long fileSize = long.Parse(fileInfoStr.Substring(0, firstPaddingIndex));
-				string fileName = fileInfoStr.Substring(firstPaddingIndex + 1, (lastPaddingIndex - firstPaddingIndex) - 1);
-
-				fileInfoStr = null;
-
+				string fileName = fileInfoStr.Substring(firstPaddingIndex + 1, (secondPaddingIndex - firstPaddingIndex) - 1);
+				var FileInfoSeq = fileInfoStr.Substring(0, secondPaddingIndex);
+				infoEndPoint = Encoding.UTF8.GetBytes(FileInfoSeq).Length;
 				return new ReceivedFileInfo() { FileName = fileName, FileSize = fileSize };
 			}
 			catch (Exception)

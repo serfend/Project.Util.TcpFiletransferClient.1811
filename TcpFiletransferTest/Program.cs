@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -31,8 +32,11 @@ namespace TcpFiletransferTest
 				{
 
 					Console.WriteLine("开始传输文件");
-					for (int index = 1; index <= 8; index++)
-						engine.SendingFile(string.Format("test ({0}).txt", index));
+					var d = new DirectoryInfo("同步设置");
+					foreach(var f in d.EnumerateFiles())
+					{
+						engine.SendingFile("同步设置/" + f.Name);
+					}
 				}
 				else
 				{

@@ -63,7 +63,6 @@ namespace TcpFiletransfer.TcpTransferEngine.Connections
 				WaitForConnect();
 			}
 		}
-		public void Clear()=>NetworkStream.Flush();	
 		private void ConnectTo()
 		{
 			if (!IsConnected)
