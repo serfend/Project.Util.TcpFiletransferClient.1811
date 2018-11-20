@@ -94,7 +94,7 @@ namespace TcpFiletransferTest
 				}
 				else
 				{
-					engine = new TransferFileEngine(EngineModel.AsClient, "1s68948k74.imwork.net", port);
+					engine = new TransferFileEngine(EngineModel.AsClient, "2y155s0805.51mypc.cn", port);
 					Console.WriteLine("等待接收");
 				}
 				Init();

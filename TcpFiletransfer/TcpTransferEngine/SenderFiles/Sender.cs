@@ -82,7 +82,7 @@ namespace File_Transfer.Model.SenderFiles
 			{
 				if (!CanDoNext)
 				{
-					Thread.Sleep(50);//TODO 等待客户端
+					Thread.Sleep(50);//等待客户端
 					var data = new byte[5];
 					var anyMessage = Connection.Read(data, 0, 5);
 					Console.WriteLine(Encoding.UTF8.GetString(data));
@@ -193,7 +193,7 @@ namespace File_Transfer.Model.SenderFiles
 				}
 				finally
 				{
-					//TODO 此处不应关闭连接 Connection.Dispose();
+					//此处不应关闭连接 Connection.Dispose();
 				}
 			}
 			CanDoNext = true;

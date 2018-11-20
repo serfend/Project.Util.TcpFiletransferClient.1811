@@ -116,9 +116,13 @@ namespace TcpFiletransfer.TcpTransferEngine.Connections
 		private void WaitForConnect()
 		{
 			
-			try
-			{
+			//try
+			//{
 				TcpListener = new TcpListener(IPAddress.Any, Port);
+				if (TcpListener == null) {
+					ConnectToClient?.Invoke(this, new ConnectToClientEventArgs(ReceiveResult.ListeningFailed,"TcpListenerIsNull"));
+					return;
+				}
 				TcpListener.Start();
 
 				bool requestAccepted = false;
@@ -128,7 +132,17 @@ namespace TcpFiletransfer.TcpTransferEngine.Connections
 				if (!CancelListening)
 				{
 					Soket = TcpListener.AcceptSocket();
+					if (Soket == null)
+					{
+						ConnectToClient?.Invoke(this, new ConnectToClientEventArgs(ReceiveResult.ListeningFailed, "SocketIsNull"));
+						return;
+					}
 					NetworkStream = new NetworkStream(Soket);
+					if (NetworkStream == null)
+					{
+						ConnectToClient?.Invoke(this, new ConnectToClientEventArgs(ReceiveResult.ListeningFailed, "NetworkStreamIsNull"));
+						return;
+					}
 					requestAccepted = true;
 				}
 
@@ -142,13 +156,13 @@ namespace TcpFiletransfer.TcpTransferEngine.Connections
 					ConnectToClient?.Invoke(this, new ConnectToClientEventArgs(ReceiveResult.ListeningCancelled));
 					Dispose();
 				}
-			}
-			catch (Exception ex)
-			{
-				Console.WriteLine(ex.Message);
-				ConnectToClient?.Invoke(this, new ConnectToClientEventArgs(ReceiveResult.ListeningFailed,ex.Message));
-				Dispose();
-			}
+			//}
+			//catch (Exception ex)
+			//{
+			//	Console.WriteLine(ex.Message);
+			//	ConnectToClient?.Invoke(this, new ConnectToClientEventArgs(ReceiveResult.ListeningFailed,ex.Message ));
+			//	Dispose();
+			//}
 			
 		}
 
